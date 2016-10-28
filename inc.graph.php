@@ -14,16 +14,23 @@ class GraphDatabase {
 		$this->client = $client;
 	}
 
+	protected function args($query, array $params) {
+		return $query instanceof GraphQuery ? $query->args() : $params;
+	}
+
 	public function execute($query, array $params = []) {
+		$params = $this->args($query, $params);
 		return $this->client->run((string) $query, $params);
 	}
 
-	public function one($query) {
-		return $this->wrap($this->client->run((string) $query)->getRecord());
+	public function one($query, array $params = []) {
+		$params = $this->args($query, $params);
+		return $this->wrap($this->client->run((string) $query, $params)->getRecord());
 	}
 
-	public function many($query) {
-		return $this->wraps($this->client->run((string) $query)->getRecords());
+	public function many($query, array $params = []) {
+		$params = $this->args($query, $params);
+		return $this->wraps($this->client->run((string) $query, $params)->getRecords());
 	}
 
 	protected function wrap(RecordView $record) {
@@ -87,6 +94,7 @@ class GraphQuery {
 		return new static;
 	}
 
+	protected $args = [];
 	protected $match = [];
 	protected $merge = [];
 	protected $where = [];
@@ -96,23 +104,30 @@ class GraphQuery {
 	protected $return = [];
 	protected $order = [];
 
+	public function args(array $params = []) {
+		return $this->args = $params + $this->args;
+	}
+
 	public function match($flow) {
 		$this->match[] = $flow;
 		return $this;
 	}
 
-	public function merge($flow) {
+	public function merge($flow, array $params = []) {
 		$this->merge[] = $flow;
+		$this->args($params);
 		return $this;
 	}
 
-	public function where($condition) {
+	public function where($condition, array $params = []) {
 		$this->where[] = $condition;
+		$this->args($params);
 		return $this;
 	}
 
-	public function set($flow) {
+	public function set($flow, array $params = []) {
 		$this->set[] = $flow;
+		$this->args($params);
 		return $this;
 	}
 
@@ -121,8 +136,9 @@ class GraphQuery {
 		return $this;
 	}
 
-	public function create($flow) {
+	public function create($flow, array $params = []) {
 		$this->create[] = $flow;
+		$this->args($params);
 		return $this;
 	}
 
