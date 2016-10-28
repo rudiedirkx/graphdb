@@ -15,15 +15,15 @@ class GraphDatabase {
 	}
 
 	public function execute($query, array $params = []) {
-		return $this->client->run($query, $params);
+		return $this->client->run((string) $query, $params);
 	}
 
 	public function one($query) {
-		return $this->wrap($this->client->run($query)->getRecord());
+		return $this->wrap($this->client->run((string) $query)->getRecord());
 	}
 
 	public function many($query) {
-		return $this->wraps($this->client->run($query)->getRecords());
+		return $this->wraps($this->client->run((string) $query)->getRecords());
 	}
 
 	protected function wrap(RecordView $record) {
@@ -78,5 +78,89 @@ class GraphNode implements \ArrayAccess {
 	public function offsetSet($offset, $value) {}
 
 	public function offsetUnset($offset) {}
+
+}
+
+class GraphQuery {
+
+	static public function make() {
+		return new static;
+	}
+
+	protected $match = [];
+	protected $merge = [];
+	protected $where = [];
+	protected $set = [];
+	protected $delete = [];
+	protected $create = [];
+	protected $return = [];
+	protected $order = [];
+
+	public function match($flow) {
+		$this->match[] = $flow;
+		return $this;
+	}
+
+	public function merge($flow) {
+		$this->merge[] = $flow;
+		return $this;
+	}
+
+	public function where($condition) {
+		$this->where[] = $condition;
+		return $this;
+	}
+
+	public function set($flow) {
+		$this->set[] = $flow;
+		return $this;
+	}
+
+	public function delete(...$aliases) {
+		$this->delete = array_merge($this->delete, $aliases);
+		return $this;
+	}
+
+	public function create($flow) {
+		$this->create[] = $flow;
+		return $this;
+	}
+
+	public function return(...$statements) {
+		$this->return = array_merge($this->return, $statements);
+		return $this;
+	}
+
+	public function order(...$statements) {
+		$this->order = array_merge($this->order, $statements);
+		return $this;
+	}
+
+	protected function build() {
+		$parts = [
+			'MATCH'		=> ['match',	', '],
+			'MERGE'		=> ['merge',	', '],
+			'WHERE'		=> ['where',	' AND '],
+			'SET'		=> ['set',		', '],
+			'DELETE'	=> ['delete',	', '],
+			'CREATE'	=> ['create',	', '],
+			'RETURN'	=> ['return',	', '],
+			'ORDER BY'	=> ['order',	', '],
+		];
+
+		$query = [];
+		foreach ($parts as $keyword => $info) {
+			list($source, $glue) = $info;
+			if ($this->$source) {
+				$query[] = $keyword . ' ' . implode($glue, $this->$source);
+			}
+		}
+
+		return implode("\n", $query);
+	}
+
+	public function __toString() {
+		return $this->build();
+	}
 
 }

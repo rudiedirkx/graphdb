@@ -1,6 +1,9 @@
 <?php
 
 use rdx\graphdb\GraphDatabase;
+use rdx\graphdb\GraphQuery;
+
+$_time = microtime(1);
 
 require 'inc.bootstrap.php';
 
@@ -34,6 +37,9 @@ $friends = $app->getAllFriends();
 // print_r($friends);
 
 ?>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8" />
+<title>Graph Friends</title>
 
 <h2>Friendships</h2>
 
@@ -72,6 +78,24 @@ $friends = $app->getAllFriends();
 	<p><button>Save person</button></p>
 </form>
 
+<pre><?= round(1000 * (microtime(1) - $_time)) ?> ms</pre>
+<pre></pre>
+
+<script>
+window.onload = function() {
+	document.querySelector('pre+pre').textContent = (performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart) + " ms";
+};
+</script>
+
+<details>
+	<summary>$friends</summary>
+	<pre><?php print_r($friends); ?></pre>
+</details>
+
+<details>
+	<summary>$people</summary>
+	<pre><?php print_r($app->getAllPeople()); ?></pre>
+</details>
 <?php
 
 class FriendsApp {
@@ -119,11 +143,17 @@ class FriendsApp {
 
 	public function getAllFriends() {
 		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many('
-				MATCH (p1)-[f:IS_FRIENDS_WITH]->(p2)
-				RETURN id(p1) AS id1, p1, id(p2) AS id2, p2, id(f) AS fid, f
-				ORDER BY p1.name ASC, p2.name ASC
-			');
+			return $this->db->many(GraphQuery::make()
+				->match('(p1)-[f:IS_FRIENDS_WITH]->(p2)')
+				->return('id(p1) AS id1', 'p1', 'id(p2) AS id2', 'p2', 'id(f) AS fid', 'f')
+				->order('p1.name ASC', 'p2.name ASC')
+			);
+
+			// return $this->db->many('
+			// 	MATCH (p1)-[f:IS_FRIENDS_WITH]->(p2)
+			// 	RETURN id(p1) AS id1, p1, id(p2) AS id2, p2, id(f) AS fid, f
+			// 	ORDER BY p1.name ASC, p2.name ASC
+			// ');
 		});
 	}
 
