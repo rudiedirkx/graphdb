@@ -5,6 +5,8 @@ namespace rdx\graphdb;
 use GraphAware\Neo4j\Client\Client;
 use GraphAware\Neo4j\Client\Formatter\RecordView;
 use GraphAware\Neo4j\Client\Formatter\Type\MapAccess;
+use GraphAware\Neo4j\Client\Formatter\Type\Node;
+use GraphAware\Neo4j\Client\Formatter\Type\Relationship;
 
 class GraphDatabase {
 
@@ -25,7 +27,8 @@ class GraphDatabase {
 
 	public function one($query, array $params = []) {
 		$params = $this->args($query, $params);
-		return $this->wrap($this->client->run((string) $query, $params)->getRecord());
+		$result = $this->client->run((string) $query, $params);
+		return $result->hasRecord() ? $this->wrap($result->getRecord()) : null;
 	}
 
 	public function many($query, array $params = []) {
@@ -34,7 +37,8 @@ class GraphDatabase {
 	}
 
 	protected function wrap(RecordView $record) {
-		return new GraphNode(GraphNode::record2array($record));
+		$wrapped = new GraphNode(GraphNode::record2array($record));
+		return $wrapped;
 	}
 
 	protected function wraps(array $records) {
@@ -45,7 +49,10 @@ class GraphDatabase {
 
 class GraphNode implements \ArrayAccess {
 
-	protected $attributes = [];
+	protected $_id;
+	protected $_labels;
+	protected $_type;
+	protected $_attributes;
 
 	static public function record2array(RecordView $record) {
 		$keys = $record->keys();
@@ -60,10 +67,24 @@ class GraphNode implements \ArrayAccess {
 	}
 
 	static public function node2array(MapAccess $node) {
-		return $node->values();
+		$data = ['_id' => $node->identity()] + $node->values();
+		if ($node instanceof Relationship) {
+			$data['_type'] = $node->type();
+		}
+		elseif ($node instanceof Node) {
+			$data['_labels'] = $node->labels();
+		}
+		return $data;
 	}
 
 	public function __construct(array $data) {
+		foreach (['_id', '_labels', '_type'] as $property) {
+			if (array_key_exists($property, $data)) {
+				$this->$property = $data[$property];
+				unset($data[$property]);
+			}
+		}
+
 		foreach ($data as $name => $value) {
 			// Single node
 			if ($value instanceof MapAccess) {
@@ -78,17 +99,29 @@ class GraphNode implements \ArrayAccess {
 			}
 			// Single attribute
 			else {
-				$this->attributes[$name] = $value;
+				$this->_attributes[$name] = $value;
 			}
 		}
 	}
 
+	public function id() {
+		return $this->_id;
+	}
+
+	public function labels() {
+		return (array) $this->_labels;
+	}
+
+	public function label() {
+		return $this->_labels ? reset($this->_labels) : null;
+	}
+
 	public function offsetExists($offset) {
-		return isset($this->attributes[$offset]);
+		return isset($this->_attributes[$offset]);
 	}
 
 	public function offsetGet($offset) {
-		return @$this->attributes[$offset];
+		return @$this->_attributes[$offset];
 	}
 
 	public function offsetSet($offset, $value) {}

@@ -36,6 +36,10 @@ if (isset($_GET['deletefriendship'])) {
 	return do_redirect('');
 }
 
+// header('Content-type: text/plain; charset=utf-8');
+// print_r($app->findFriendshipPath('Erwin', 'Rudie'));
+// exit;
+
 $people = $app->getAllPeopleOptions();
 $friendships = $app->getAllFriendships();
 
@@ -44,9 +48,6 @@ $friendshipPath = null;
 if (!empty($_GET['friend1']) && !empty($_GET['friend2'])) {
 	$friendshipPath = $app->findFriendshipPath($_GET['friend1'], $_GET['friend2']);
 }
-
-// header('Content-type: text/plain; charset=utf-8');
-// print_r($friendships);
 
 ?>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -63,7 +64,7 @@ button.delete {
 
 <h2>Friendships</h2>
 
-<table border="1" cellspacing="0" cellpadding="5">
+<table class="friendships" border="1" cellspacing="0" cellpadding="5">
 	<thead>
 		<tr>
 			<th>Friend 1</th>
@@ -74,9 +75,9 @@ button.delete {
 	<tbody>
 		<? foreach ($friendships as $rel): ?>
 			<tr>
-				<td><?= html($rel->p1['name']) ?></td>
-				<td><?= html($rel->p2['name']) ?></td>
-				<td><?= $rel->f['since'] ? date('Y-m-d H:i:s', $rel->f['since']) : '' ?></td>
+				<td><?= html($rel['name1']) ?></td>
+				<td><?= html($rel['name2']) ?></td>
+				<td><?= $rel['since'] ? date('Y-m-d H:i:s', $rel['since']) : '' ?></td>
 				<td><a href="?deletefriendship=<?= html($rel['fid']) ?>">delete</a></td>
 			</tr>
 		<? endforeach ?>
@@ -85,12 +86,12 @@ button.delete {
 
 <h2>Find * friendship</h2>
 
-<form method="get" action>
+<form class="find-path" method="get" action>
 	<p>
 		How is
-		<select name="friend1"><?= html_options(['' => '--'] + $people, @$_GET['friend1']) ?></select>
+		<select name="friend1"><?= html_options(['' => '-- Person'] + $people, @$_GET['friend1']) ?></select>
 		friends with
-		<select name="friend2"><?= html_options(['' => '--'] + $people, @$_GET['friend2']) ?></select>
+		<select name="friend2"><?= html_options(['' => '-- Person'] + $people, @$_GET['friend2']) ?></select>
 		?
 	</p>
 	<?if ($friendshipPath): ?>
@@ -103,18 +104,19 @@ button.delete {
 
 <h2>Create friendship</h2>
 
-<form method="post" action>
+<form class="create-friendship" method="post" action>
 	<p>
-		<select name="person1"><?= html_options(['' => '--'] + $people) ?></select>
-		is friends with
-		<select name="person2"><?= html_options(['' => '--'] + $people) ?></select>
+		Make
+		<select name="person1"><?= html_options(['' => '-- Person'] + $people) ?></select>
+		friends with
+		<select name="person2"><?= html_options(['' => '-- Person'] + $people) ?></select>
 	</p>
 	<p><button>Friend them</button></p>
 </form>
 
 <h2>Create/update/delete person</h2>
 
-<form method="post" action>
+<form class="create-person" method="post" action>
 	<p>Name: <input name="name" /></p>
 	<p>Age: <input name="age" /></p>
 	<p>Hobby: <input name="hobby" /></p>
@@ -132,7 +134,7 @@ window.onload = function() {
 	document.querySelector('pre+pre').textContent = (performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart) + " ms";
 };
 
-document.querySelector('select').onchange = function() {
+document.querySelector('.create-friendship select').onchange = function() {
 	document.querySelector('[name="name"]').value = this.value;
 };
 </script>
@@ -145,6 +147,11 @@ document.querySelector('select').onchange = function() {
 <details>
 	<summary>$people</summary>
 	<pre><?php print_r($app->getAllPeople()); ?></pre>
+</details>
+
+<details>
+	<summary>$friendshipPath</summary>
+	<pre><?php print_r($friendshipPath); ?></pre>
 </details>
 <?php
 
@@ -214,8 +221,8 @@ class FriendsApp {
 		return $this->cache(__FUNCTION__, function() {
 			return $this->db->many(GraphQuery::make()
 				->match('(p1)-[f:IS_FRIENDS_WITH]->(p2)')
-				->return('id(p1) AS id1', 'p1', 'id(p2) AS id2', 'p2', 'id(f) AS fid', 'f')
-				->order('p1.name ASC', 'p2.name ASC')
+				->return('p1.name AS name1', 'p2.name AS name2', 'f.since AS since', 'id(f) AS fid')
+				->order('name1 ASC', 'name2 ASC')
 			);
 		});
 	}
@@ -224,7 +231,7 @@ class FriendsApp {
 		return $this->cache(__FUNCTION__, function() {
 			return $this->db->many(GraphQuery::make()
 				->match('(p:Person)')
-				->return('p.name AS id', 'p')
+				->return('p')
 				->order('p.name ASC')
 			);
 		});
@@ -237,7 +244,7 @@ class FriendsApp {
 			$options = [];
 			foreach ($people as $person) {
 				$props = array_filter([$person->p['age'], $person->p['hobby']]);
-				$options[ $person['id'] ] = $person->p['name'] . ($props ? ' (' . implode(', ', $props) . ')' : '');
+				$options[ $person->p['name'] ] = $person->p['name'] . ($props ? ' (' . implode(', ', $props) . ')' : '');
 			}
 
 			return $options;
