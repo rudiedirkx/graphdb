@@ -1,7 +1,6 @@
 <?php
 
-use rdx\graphdb\GraphDatabase;
-use rdx\graphdb\GraphQuery;
+use rdx\graphdb\Database;
 
 $_time = microtime(1);
 
@@ -37,7 +36,7 @@ class TwitterApp {
 	protected $db;
 	protected $cache = [];
 
-	public function __construct(GraphDatabase $db) {
+	public function __construct(Database $db) {
 		$this->db = $db;
 	}
 

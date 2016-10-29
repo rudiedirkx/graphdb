@@ -1,4 +1,20 @@
 {
+    "name": "rdx/graphdb",
+    "description": "Simple GraphDB wrapper for easy db access",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Rudie Dirkx",
+            "email": "github@hotblocks.nl"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "rdx\\graphdb\\": "src"
+        }
+    },
     "require": {
         "graphaware/neo4j-php-client": "^4.6"
     }

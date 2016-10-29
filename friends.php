@@ -1,7 +1,7 @@
 <?php
 
-use rdx\graphdb\GraphDatabase;
-use rdx\graphdb\GraphQuery;
+use rdx\graphdb\Database;
+use rdx\graphdb\Query;
 
 $_time = microtime(1);
 
@@ -160,7 +160,7 @@ class FriendsApp {
 	protected $db;
 	protected $cache = [];
 
-	public function __construct(GraphDatabase $db) {
+	public function __construct(Database $db) {
 		$this->db = $db;
 
 		// CREATE CONSTRAINT ON (p:Person) ASSERT p.name IS UNIQUE
@@ -184,7 +184,7 @@ class FriendsApp {
 	}
 
 	public function deleteFriendship(int $id) {
-		return $this->db->execute(GraphQuery::make()
+		return $this->db->execute(Query::make()
 			->match('()-[f:IS_FRIENDS_WITH]->()')
 			->where("id(f) = $id")
 			->delete('f')
@@ -193,7 +193,7 @@ class FriendsApp {
 
 	public function createFriendship($person1, $person2) {
 		$data = ['since' => time()];
-		return $this->db->execute(GraphQuery::make()
+		return $this->db->execute(Query::make()
 			->match('(p1:Person)')->match('(p2:Person)')
 			->where('p1.name = {person1}', compact('person1'))
 			->where('p2.name = {person2}', compact('person2'))
@@ -202,7 +202,7 @@ class FriendsApp {
 	}
 
 	public function deletePerson($name) {
-		return $this->db->execute(GraphQuery::make()
+		return $this->db->execute(Query::make()
 			->match('(p:Person)')
 			->where('p.name = {name}', compact('name'))
 			->delete('p')
@@ -211,7 +211,7 @@ class FriendsApp {
 
 	public function createPerson(array $data) {
 		// Person.name is UNIQUE, so this is a very easy MERGE/REPLACE/UPSERT
-		return $this->db->execute(GraphQuery::make()
+		return $this->db->execute(Query::make()
 			->merge('(p:Person {name: {name}})', ['name' => $data['name']])
 			->set('p += {data}', ['data' => $data])
 		);
@@ -219,7 +219,7 @@ class FriendsApp {
 
 	public function getAllFriendships() {
 		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many(GraphQuery::make()
+			return $this->db->many(Query::make()
 				->match('(p1)-[f:IS_FRIENDS_WITH]->(p2)')
 				->return('p1.name AS name1', 'p2.name AS name2', 'f.since AS since', 'id(f) AS fid')
 				->order('name1 ASC', 'name2 ASC')
@@ -229,7 +229,7 @@ class FriendsApp {
 
 	public function getAllPeople() {
 		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many(GraphQuery::make()
+			return $this->db->many(Query::make()
 				->match('(p:Person)')
 				->return('p')
 				->order('p.name ASC')
