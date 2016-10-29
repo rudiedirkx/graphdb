@@ -5,7 +5,7 @@ use rdx\graphdb\GraphQuery;
 
 $_time = microtime(1);
 
-require 'inc.bootstrap.php';
+require 'inc.bootstrap.friends.php';
 
 $app = new FriendsApp($db);
 
