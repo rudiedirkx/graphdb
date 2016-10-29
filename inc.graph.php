@@ -65,9 +65,18 @@ class GraphNode implements \ArrayAccess {
 
 	public function __construct(array $data) {
 		foreach ($data as $name => $value) {
+			// Single node
 			if ($value instanceof MapAccess) {
 				$this->$name = new static(static::node2array($value));
 			}
+			// List of nodes
+			// @todo Handle empty list of attributes/nodes
+			elseif (is_array($value) && isset($value[0]) && $value[0] instanceof MapAccess) {
+				$this->$name = array_map(function($node) {
+					return new static(static::node2array($node));
+				}, $value);
+			}
+			// Single attribute
 			else {
 				$this->attributes[$name] = $value;
 			}

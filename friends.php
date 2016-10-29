@@ -23,8 +23,8 @@ if (isset($_POST['name'], $_POST['age'], $_POST['hobby'])) {
 }
 
 // CREATE FRIENDSHIP
-if (isset($_POST['friend1'], $_POST['friend2'])) {
-	$app->createFriendship($_POST['friend1'], $_POST['friend2']);
+if (isset($_POST['person1'], $_POST['person2'])) {
+	$app->createFriendship($_POST['person1'], $_POST['person2']);
 
 	return do_redirect('');
 }
@@ -38,6 +38,12 @@ if (isset($_GET['deletefriendship'])) {
 
 $people = $app->getAllPeopleOptions();
 $friendships = $app->getAllFriendships();
+
+// FIND FRIENDSHIP
+$friendshipPath = null;
+if (!empty($_GET['friend1']) && !empty($_GET['friend2'])) {
+	$friendshipPath = $app->findFriendshipPath($_GET['friend1'], $_GET['friend2']);
+}
 
 // header('Content-type: text/plain; charset=utf-8');
 // print_r($friendships);
@@ -77,11 +83,32 @@ button.delete {
 	</tbody>
 </table>
 
+<h2>Find * friendship</h2>
+
+<form method="get" action>
+	<p>
+		How is
+		<select name="friend1"><?= html_options(['' => '--'] + $people, @$_GET['friend1']) ?></select>
+		friends with
+		<select name="friend2"><?= html_options(['' => '--'] + $people, @$_GET['friend2']) ?></select>
+		?
+	</p>
+	<?if ($friendshipPath): ?>
+		<?= html(implode(' > ', array_map(function($person) {
+			return $person['name'];
+		}, $friendshipPath->friends))) ?>
+	<? endif ?>
+	<p><button>Find friendship path</button></p>
+</form>
+
 <h2>Create friendship</h2>
 
 <form method="post" action>
-	<p>Friend 1: <select name="friend1"><?= html_options(['' => '--'] + $people) ?></select></p>
-	<p>Friend 2: <select name="friend2"><?= html_options(['' => '--'] + $people) ?></select></p>
+	<p>
+		<select name="person1"><?= html_options(['' => '--'] + $people) ?></select>
+		is friends with
+		<select name="person2"><?= html_options(['' => '--'] + $people) ?></select>
+	</p>
 	<p><button>Friend them</button></p>
 </form>
 
@@ -103,6 +130,10 @@ button.delete {
 <script>
 window.onload = function() {
 	document.querySelector('pre+pre').textContent = (performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart) + " ms";
+};
+
+document.querySelector('select').onchange = function() {
+	document.querySelector('[name="name"]').value = this.value;
 };
 </script>
 
@@ -134,6 +165,15 @@ class FriendsApp {
 		}
 
 		return $this->cache[$name];
+	}
+
+	public function findFriendshipPath($person1, $person2) {
+		return $this->db->one('
+			MATCH path=(e:Person {name: {person1}})-[f:IS_FRIENDS_WITH*]-(j:Person {name: {person2}})
+			RETURN nodes(path) AS friends, size(f) AS length
+			ORDER BY length ASC
+			LIMIT 1
+		', compact('person1', 'person2'));
 	}
 
 	public function deleteFriendship(int $id) {
