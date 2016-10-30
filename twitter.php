@@ -89,7 +89,7 @@ button.delete {
 				<td><?= html($tweet->author['name']) ?></td>
 				<td class="text"><?= html($tweet->tweet['text']) ?></td>
 				<td><?= date('Y-m-d H:i:s', $tweet->tweet['created']) ?></td>
-				<td><a href="?deletetweet=<?= html($tweet->tweet->id()) ?>">delete</a></td>
+				<td><a href="?deletetweet=<?= html($tweet->tweet['uuid']) ?>">delete</a></td>
 			</tr>
 		<? endforeach ?>
 	</tbody>
@@ -149,6 +149,9 @@ class TwitterApp {
 
 	public function __construct(Database $db) {
 		$this->db = $db;
+
+		// CREATE CONSTRAINT ON (u:User) ASSERT u.name IS UNIQUE
+		// CREATE CONSTRAINT ON (t:Tweet) ASSERT t.uuid IS UNIQUE
 	}
 
 	protected function cache($name, callable $worker) {
@@ -157,6 +160,10 @@ class TwitterApp {
 		}
 
 		return $this->cache[$name];
+	}
+
+	public function uuid() {
+		return str_replace('.', '_', microtime(1));
 	}
 
 	public function getTweets() {
@@ -210,7 +217,7 @@ class TwitterApp {
 	}
 
 	public function createTweet($author, $parent, $text) {
-		$tweet = ['text' => $text, 'created' => time()];
+		$tweet = ['uuid' => $this->uuid(), 'text' => $text, 'created' => time()];
 		$query = Query::make()
 			->match('(u:User {name: {author}})', compact('author'))
 			->create('(t:Tweet {tweet})', compact('tweet'))
