@@ -14,6 +14,7 @@ class Query {
 	protected $where = [];
 	protected $set = [];
 	protected $delete = [];
+	protected $detachDelete = [];
 	protected $create = [];
 	protected $return = [];
 	protected $order = [];
@@ -22,8 +23,9 @@ class Query {
 		return $this->args = $params + $this->args;
 	}
 
-	public function match($flow) {
+	public function match($flow, array $params = []) {
 		$this->match[] = $flow;
+		$this->args($params);
 		return $this;
 	}
 
@@ -50,6 +52,11 @@ class Query {
 		return $this;
 	}
 
+	public function detachDelete(...$aliases) {
+		$this->detachDelete = array_merge($this->detachDelete, $aliases);
+		return $this;
+	}
+
 	public function create($flow, array $params = []) {
 		$this->create[] = $flow;
 		$this->args($params);
@@ -68,14 +75,15 @@ class Query {
 
 	protected function build() {
 		$parts = [
-			'MATCH'		=> ['match',	', '],
-			'MERGE'		=> ['merge',	', '],
-			'WHERE'		=> ['where',	' AND '],
-			'SET'		=> ['set',		', '],
-			'DELETE'	=> ['delete',	', '],
-			'CREATE'	=> ['create',	', '],
-			'RETURN'	=> ['return',	', '],
-			'ORDER BY'	=> ['order',	', '],
+			'MATCH'			=> ['match',		', '],
+			'MERGE'			=> ['merge',		', '],
+			'WHERE'			=> ['where',		' AND '],
+			'SET'			=> ['set',			', '],
+			'DELETE'		=> ['delete',		', '],
+			'DETACH DELETE'	=> ['detachDelete',	', '],
+			'CREATE'		=> ['create',		', '],
+			'RETURN'		=> ['return',		', '],
+			'ORDER BY'		=> ['order',		', '],
 		];
 
 		$query = [];

@@ -183,10 +183,10 @@ class FriendsApp {
 		', compact('person1', 'person2'));
 	}
 
-	public function deleteFriendship(int $id) {
+	public function deleteFriendship($id) {
 		return $this->db->execute(Query::make()
 			->match('()-[f:IS_FRIENDS_WITH]->()')
-			->where("id(f) = $id")
+			->where('id(f) = {id}', ['id' => (int) $id])
 			->delete('f')
 		);
 	}
@@ -210,6 +210,8 @@ class FriendsApp {
 	}
 
 	public function createPerson(array $data) {
+		$data = array_map('trim', $data);
+
 		// Person.name is UNIQUE, so this is a very easy MERGE/REPLACE/UPSERT
 		return $this->db->execute(Query::make()
 			->merge('(p:Person {name: {name}})', ['name' => $data['name']])
