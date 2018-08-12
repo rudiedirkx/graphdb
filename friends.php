@@ -95,9 +95,9 @@ button.delete {
 		?
 	</p>
 	<?if ($friendshipPath): ?>
-		<?= html(implode(' > ', array_map(function($person) {
+		<p style="color: green"><?= html(implode(' > ', array_map(function($person) {
 			return $person['name'];
-		}, $friendshipPath->friends))) ?>
+		}, $friendshipPath->friends))) ?></p>
 	<? endif ?>
 	<p><button>Find friendship path</button></p>
 </form>
@@ -152,6 +152,11 @@ document.querySelector('.create-friendship select').onchange = function() {
 <details>
 	<summary>$friendshipPath</summary>
 	<pre><?php print_r($friendshipPath); ?></pre>
+</details>
+
+<details>
+	<summary>Queries</summary>
+	<pre><?php print_r($app->getQueries()); ?></pre>
 </details>
 <?php
 
@@ -251,6 +256,10 @@ class FriendsApp {
 
 			return $options;
 		});
+	}
+
+	public function getQueries() {
+		return $this->db->getQueries();
 	}
 
 }

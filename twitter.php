@@ -140,6 +140,11 @@ window.onload = function() {
 	<summary>$users</summary>
 	<pre><?php print_r($users); ?></pre>
 </details>
+
+<details>
+	<summary>Queries</summary>
+	<pre><?php print_r($app->getQueries()); ?></pre>
+</details>
 <?php
 
 class TwitterApp {
@@ -267,6 +272,10 @@ class TwitterApp {
 				return $options + [$user->user['name'] => $user->user['name']];
 			}, []);
 		});
+	}
+
+	public function getQueries() {
+		return $this->db->getQueries();
 	}
 
 }
