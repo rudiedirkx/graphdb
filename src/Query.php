@@ -13,6 +13,8 @@ class Query {
 	protected $merge = [];
 	protected $where = [];
 	protected $set = [];
+	protected $onCreateSet = [];
+	protected $onMatchSet = [];
 	protected $delete = [];
 	protected $detachDelete = [];
 	protected $create = [];
@@ -37,6 +39,18 @@ class Query {
 
 	public function where($condition, array $params = []) {
 		$this->where[] = $condition;
+		$this->args($params);
+		return $this;
+	}
+
+	public function onCreateSet($flow, array $params = []) {
+		$this->onCreateSet[] = $flow;
+		$this->args($params);
+		return $this;
+	}
+
+	public function onMatchSet($flow, array $params = []) {
+		$this->onMatchSet[] = $flow;
 		$this->args($params);
 		return $this;
 	}
@@ -78,6 +92,8 @@ class Query {
 			'MATCH'			=> ['match',		', '],
 			'MERGE'			=> ['merge',		', '],
 			'WHERE'			=> ['where',		' AND '],
+			'ON CREATE SET'	=> ['onCreateSet',	', '],
+			'ON MATCH SET'	=> ['onMatchSet',	', '],
 			'SET'			=> ['set',			', '],
 			'DELETE'		=> ['delete',		', '],
 			'DETACH DELETE'	=> ['detachDelete',	', '],

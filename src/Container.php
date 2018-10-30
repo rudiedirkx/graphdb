@@ -7,12 +7,13 @@ use GraphAware\Neo4j\Client\Formatter\Type\MapAccess;
 use GraphAware\Neo4j\Client\Formatter\Type\Node;
 use GraphAware\Neo4j\Client\Formatter\Type\Relationship;
 
-class Container implements \ArrayAccess {
+class Container implements \ArrayAccess, \JsonSerializable {
 
 	protected $_id;
 	protected $_labels;
 	protected $_type;
 	protected $_attributes;
+	protected $_nodes;
 
 	static public function record2array(RecordView $record) {
 		$keys = $record->keys();
@@ -48,11 +49,11 @@ class Container implements \ArrayAccess {
 		foreach ($data as $name => $value) {
 			// Single node
 			if ($value instanceof MapAccess) {
-				$this->$name = new static(static::node2array($value));
+				$this->_nodes[$name] = new static(static::node2array($value));
 			}
 			// List of nodes
 			elseif (is_array($value) && isset($value[0]) && $value[0] instanceof MapAccess) {
-				$this->$name = array_map(function($node) {
+				$this->_nodes[$name] = array_map(function($node) {
 					return new static(static::node2array($node));
 				}, $value);
 			}
@@ -75,7 +76,27 @@ class Container implements \ArrayAccess {
 	}
 
 	public function label() {
-		return $this->_labels ? reset($this->_labels) : null;
+		return count($this->_labels) ? reset($this->_labels) : null;
+	}
+
+	public function attributes() {
+		return $this->_attributes;
+	}
+
+	public function nodes() {
+		return $this->_nodes;
+	}
+
+	public function node() {
+		return count($this->_nodes) ? reset($this->_nodes) : null;
+	}
+
+	public function jsonSerialize() {
+		return $this->_attributes;
+	}
+
+	public function __get($name) {
+		return $this->_nodes[$name] ?? null;
 	}
 
 	public function offsetExists($offset) {
@@ -83,7 +104,7 @@ class Container implements \ArrayAccess {
 	}
 
 	public function offsetGet($offset) {
-		return @$this->_attributes[$offset];
+		return $this->_attributes[$offset] ?? null;
 	}
 
 	public function offsetSet($offset, $value) {}
