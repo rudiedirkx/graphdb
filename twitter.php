@@ -1,9 +1,6 @@
 <?php
 
-use rdx\graphdb\Database;
-use rdx\graphdb\Query;
-
-$_time = microtime(1);
+$_time = microtime(true);
 
 require 'inc.bootstrap.twitter.php';
 
@@ -44,7 +41,7 @@ $tweets = $app->getTweets();
 $tweetOptions = $app->getTweetOptions();
 
 $hierarchy = $app->makeTweetHierarchy($tweets);
-// print_r($hierarchy);
+// dump($hierarchy);
 
 ?>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -79,6 +76,7 @@ button.delete {
 			<th>Author</th>
 			<th>Text</th>
 			<th>Posted on</th>
+			<th></th>
 		</tr>
 	</thead>
 	<tbody>
@@ -122,7 +120,7 @@ button.delete {
 	</p>
 </form>
 
-<pre><?= round(1000 * (microtime(1) - $_time)) ?> ms</pre>
+<pre><?= round(1000 * (microtime(true) - $_time)) ?> ms</pre>
 <pre></pre>
 
 <script>
@@ -145,137 +143,3 @@ window.onload = function() {
 	<summary>Queries</summary>
 	<pre><?php print_r($app->getQueries()); ?></pre>
 </details>
-<?php
-
-class TwitterApp {
-
-	protected $db;
-	protected $cache = [];
-
-	public function __construct(Database $db) {
-		$this->db = $db;
-
-		// CREATE CONSTRAINT ON (u:User) ASSERT u.name IS UNIQUE
-		// CREATE CONSTRAINT ON (t:Tweet) ASSERT t.uuid IS UNIQUE
-	}
-
-	protected function cache($name, callable $worker) {
-		if (!array_key_exists($name, $this->cache)) {
-			$this->cache[$name] = $worker();
-		}
-
-		return $this->cache[$name];
-	}
-
-	public function uuid() {
-		return str_replace('.', '_', microtime(1));
-	}
-
-	public function getTweets() {
-		return $this->cache(__FUNCTION__, function() {
-			return array_reduce($this->db->many('
-				MATCH (t:Tweet)-[:AUTHORED_BY]->(u:User)
-				OPTIONAL MATCH (t)-[:REPLIES_TO]->(p:Tweet)
-				RETURN t AS tweet, u AS author, id(p) AS pid
-				ORDER BY t.created ASC
-			'), function($tweets, $tweet) {
-				return $tweets + [$tweet->tweet->id() => $tweet];
-			}, []);
-		});
-	}
-
-	public function makeTweetHierarchy(array $tweets) {
-		// Create hierarchy with automatic references
-		$parents = [];
-		foreach ($tweets as $tid => $tweet) {
-			if ($pid = $tweet['pid']) {
-				$tweets[$pid]->replies[] = $tweet;
-			}
-			else {
-				$parents[] = $tweet;
-			}
-		}
-
-		// Flatten & remove hierarchy
-		$ordered = [];
-		$add = function($level, $tweets) use (&$add, &$ordered) {
-			foreach ($tweets as $tweet) {
-				$ordered[] = [$level, $tweet];
-
-				if (isset($tweet->replies)) {
-					$add($level + 1, $tweet->replies);
-					unset($tweet->replies);
-				}
-			}
-		};
-		$add(0, $parents);
-
-		return $ordered;
-	}
-
-	public function getTweetOptions() {
-		return $this->cache(__FUNCTION__, function() {
-			return array_reduce($this->getTweets(), function($options, $tweet) {
-				return $options + [$tweet->tweet->id() => $tweet->author['name'] . ': ' . $tweet->tweet['text']];
-			}, []);
-		});
-	}
-
-	public function createTweet($author, $parent, $text) {
-		$tweet = ['uuid' => $this->uuid(), 'text' => $text, 'created' => time()];
-		$query = Query::make()
-			->match('(u:User {name: {author}})', compact('author'))
-			->create('(t:Tweet {tweet})', compact('tweet'))
-			->create('(t)-[:AUTHORED_BY]->(u)');
-
-		if ($parent !== '') {
-			$query
-				->match('(p:Tweet)')
-				->where('id(p) = {pid}', ['pid' => (int) $parent])
-				->create('(t)-[:REPLIES_TO]->(p)');
-		}
-
-		return $this->db->execute($query);
-	}
-
-	public function deleteTweet($id) {
-		return $this->db->execute(Query::make()
-			->match('(t:Tweet)')
-			->where('id(t) = {tid}', ['tid' => (int) $id])
-			->detachDelete('t')
-		);
-	}
-
-	public function createUser(array $data) {
-		$data = array_map('trim', $data);
-
-		// User.name is UNIQUE, so this is a very easy MERGE/REPLACE/UPSERT
-		return $this->db->execute(Query::make()
-			->merge('(u:User {name: {name}})', ['name' => $data['name']])
-			// ->set('u += {data}', ['data' => $data])
-		);
-	}
-
-	public function getUsers() {
-		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many('
-				MATCH (u:User)
-				RETURN u AS user
-				ORDER BY u.name
-			');
-		});
-	}
-
-	public function getUserOptions() {
-		return $this->cache(__FUNCTION__, function() {
-			return array_reduce($this->getUsers(), function($options, $user) {
-				return $options + [$user->user['name'] => $user->user['name']];
-			}, []);
-		});
-	}
-
-	public function getQueries() {
-		return $this->db->getQueries();
-	}
-
-}

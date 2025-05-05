@@ -1,0 +1,18 @@
+# includes:
+# 	- phpstan-baseline.neon
+parameters:
+	level: 6
+	paths:
+		- src/
+		- apps/
+	# excludePaths:
+	# 	- src/PhpStan/
+	typeAliases:
+		AssocArray: 'array<string, mixed>'
+	universalObjectCratesClasses:
+		- rdx\graphdb\Container
+	checkExplicitMixed: true
+	checkImplicitMixed: true
+	reportMaybes: true
+	treatPhpDocTypesAsCertain: false
+	reportUnmatchedIgnoredErrors: true

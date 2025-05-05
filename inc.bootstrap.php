@@ -4,4 +4,4 @@ require 'vendor/autoload.php';
 require 'env.php';
 require 'inc.functions.php';
 
-session_start();
+@session_start();

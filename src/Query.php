@@ -4,90 +4,146 @@ namespace rdx\graphdb;
 
 class Query {
 
-	static public function make() {
-		return new static;
+	static public function make() : self {
+		return new self;
 	}
 
-	protected $args = [];
-	protected $match = [];
-	protected $merge = [];
-	protected $where = [];
-	protected $set = [];
-	protected $onCreateSet = [];
-	protected $onMatchSet = [];
-	protected $delete = [];
-	protected $detachDelete = [];
-	protected $create = [];
-	protected $return = [];
-	protected $order = [];
+	/** @var AssocArray */
+	protected array $args = [];
+	/** @var list<string> */
+	protected array $match = [];
+	/** @var list<string> */
+	protected array $merge = [];
+	/** @var list<string> */
+	protected array $where = [];
+	/** @var list<string> */
+	protected array $set = [];
+	/** @var list<string> */
+	protected array $onCreateSet = [];
+	/** @var list<string> */
+	protected array $onMatchSet = [];
+	/** @var list<string> */
+	protected array $delete = [];
+	/** @var list<string> */
+	protected array $detachDelete = [];
+	/** @var list<string> */
+	protected array $create = [];
+	/** @var list<string> */
+	protected array $return = [];
+	/** @var list<string> */
+	protected array $order = [];
 
-	public function args(array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return AssocArray
+	 */
+	public function args(array $params = []) : array {
 		return $this->args = $params + $this->args;
 	}
 
-	public function match($flow, array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return $this
+	 */
+	public function match(string $flow, array $params = []) {
 		$this->match[] = $flow;
 		$this->args($params);
 		return $this;
 	}
 
-	public function merge($flow, array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return $this
+	 */
+	public function merge(string $flow, array $params = []) {
 		$this->merge[] = $flow;
 		$this->args($params);
 		return $this;
 	}
 
-	public function where($condition, array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return $this
+	 */
+	public function where(string $condition, array $params = []) {
 		$this->where[] = $condition;
 		$this->args($params);
 		return $this;
 	}
 
-	public function onCreateSet($flow, array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return $this
+	 */
+	public function onCreateSet(string $flow, array $params = []) {
 		$this->onCreateSet[] = $flow;
 		$this->args($params);
 		return $this;
 	}
 
-	public function onMatchSet($flow, array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return $this
+	 */
+	public function onMatchSet(string $flow, array $params = []) {
 		$this->onMatchSet[] = $flow;
 		$this->args($params);
 		return $this;
 	}
 
-	public function set($flow, array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return $this
+	 */
+	public function set(string $flow, array $params = []) {
 		$this->set[] = $flow;
 		$this->args($params);
 		return $this;
 	}
 
-	public function delete(...$aliases) {
+	/**
+	 * @return $this
+	 */
+	public function delete(string ...$aliases) {
 		$this->delete = array_merge($this->delete, $aliases);
 		return $this;
 	}
 
-	public function detachDelete(...$aliases) {
+	/**
+	 * @return $this
+	 */
+	public function detachDelete(string ...$aliases) {
 		$this->detachDelete = array_merge($this->detachDelete, $aliases);
 		return $this;
 	}
 
-	public function create($flow, array $params = []) {
+	/**
+	 * @param AssocArray $params
+	 * @return $this
+	 */
+	public function create(string $flow, array $params = []) {
 		$this->create[] = $flow;
 		$this->args($params);
 		return $this;
 	}
 
-	public function return(...$statements) {
+	/**
+	 * @return $this
+	 */
+	public function return(string ...$statements) {
 		$this->return = array_merge($this->return, $statements);
 		return $this;
 	}
 
-	public function order(...$statements) {
+	/**
+	 * @return $this
+	 */
+	public function order(string ...$statements) {
 		$this->order = array_merge($this->order, $statements);
 		return $this;
 	}
 
-	protected function build() {
+	protected function build() : string {
 		$parts = [
 			'MATCH'			=> ['match',		', '],
 			'MERGE'			=> ['merge',		', '],
@@ -113,8 +169,14 @@ class Query {
 		return implode("\n", $query);
 	}
 
-	public function __toString() {
+	public function __toString() : string {
 		return $this->build();
+	}
+
+	public function __debugInfo() : array {
+		return [
+			'_string' => $this->build(),
+		];
 	}
 
 }

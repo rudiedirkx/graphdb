@@ -4,10 +4,6 @@
 // Character has Person
 // Person-Movie only through Character
 
-use rdx\graphdb\Container;
-use rdx\graphdb\Database;
-use rdx\graphdb\Query;
-
 $_time = microtime(1);
 
 require 'inc.bootstrap.imdb.php';
@@ -16,7 +12,8 @@ $app = new ImdbApp($db);
 
 // MOVIE
 if ( isset($_POST['id'], $_POST['title'], $_POST['year']) ) {
-	header('Content-type: text/plain; charset=utf-8');
+	// ini_set('html_errors', 0);
+	// header('Content-type: text/plain; charset=utf-8');
 
 	$op = @$_POST['_action'] ?: 'save';
 	if ($op == 'save') {
@@ -31,7 +28,8 @@ if ( isset($_POST['id'], $_POST['title'], $_POST['year']) ) {
 
 // PERSON
 if ( isset($_POST['id'], $_POST['name'], $_POST['nationality']) ) {
-	header('Content-type: text/plain; charset=utf-8');
+	// ini_set('html_errors', 0);
+	// header('Content-type: text/plain; charset=utf-8');
 
 	$op = @$_POST['_action'] ?: 'save';
 	if ($op == 'save') {
@@ -46,7 +44,8 @@ if ( isset($_POST['id'], $_POST['name'], $_POST['nationality']) ) {
 
 // CHARACTER
 if ( isset($_POST['movie_id'], $_POST['person_id'], $_POST['character_id'], $_POST['character']) ) {
-	header('Content-type: text/plain; charset=utf-8');
+	// ini_set('html_errors', 0);
+	// header('Content-type: text/plain; charset=utf-8');
 
 	if ( $_POST['character'] ) {
 		$app->createCharacter($_POST['movie_id'], $_POST['person_id'], $_POST['character']);
@@ -65,11 +64,12 @@ if ( isset($_POST['movie_id'], $_POST['person_id'], $_POST['character_id'], $_PO
 // print_r($app->getAllRoles());
 // exit;
 
+$moviesOptions = $app->getAllMoviesOptions();
 $characterOptions = $app->getAllCharactersOptions();
 $peopleOptions = $app->getAllPeopleOptions();
-$moviesOptions = $app->getAllMoviesOptions();
 
 $roles = $app->getAllRoles();
+// dd($roles);
 
 $character = empty($_GET['character']) ? null : $app->getCharacter($_GET['character']);
 $characterAppearances = empty($character) ? null : $app->getCharacterAppearances($character);
@@ -111,12 +111,14 @@ button.delete {
 		<th>Movie</th>
 		<th>Person</th>
 		<th>Character</th>
+		<th>Fee</th>
 	</tr>
 	<? foreach ($roles as $role): ?>
 		<tr>
 			<td><?= $role->m['title'] ?> (<?= $role->m['year'] ?>)</td>
 			<td><?= $role->p['name'] ?></td>
 			<td><a href="?character=<?= $role->c['uuid'] ?>"><?= $role->c['name'] ?></a></td>
+			<td><?= $role['fee'] ?></td>
 		</tr>
 	<? endforeach ?>
 </table>
@@ -199,194 +201,3 @@ const data = {
 	<summary>Queries (<?= count($queries = $app->getQueries()) ?>)</summary>
 	<pre><?php print_r($queries) ?></pre>
 </details>
-<?php
-
-class ImdbApp {
-
-	protected $db;
-	protected $cache = [];
-
-	public function __construct(Database $db) {
-		$this->db = $db;
-
-		$db->middleware('log', function(callable $next, $query, array $params) {
-			$_SESSION['queries'][] = [
-				'query' => "\n" . trim($query, "\r\n"),
-				'params' => $params,
-			];
-			return $next($query, $params);
-		}, 1000);
-
-		// CREATE INDEX ON :Person (uuid)
-		// CREATE INDEX ON :Movie (uuid)
-		// CREATE INDEX ON :Character (uuid)
-	}
-
-	protected function cache($name, callable $worker) {
-		if (!array_key_exists($name, $this->cache)) {
-			$this->cache[$name] = $worker();
-		}
-
-		return $this->cache[$name];
-	}
-
-	public function serializeContainers(array $containers) {
-		$objects = [];
-		foreach ($containers as $container) {
-			$objects[ $container['uuid'] ] = $container;
-		}
-		return $objects ?: new stdClass;
-	}
-
-	public function getAllPeople() {
-		return $this->cache(__FUNCTION__, function() {
-			return $this->db->manyNode(Query::make()
-				->match('(x:Person)')
-				->return('x')
-				->order('x.name')
-			);
-		});
-	}
-
-	public function getAllPeopleOptions() {
-		return $this->cache(__FUNCTION__, function() {
-			$people = $this->getAllPeople();
-
-			$options = [];
-			foreach ($people as $person) {
-				$label = $person['name'] . ' (' . $person['nationality'] . ')';
-				$options[ $person['uuid'] ] = $label;
-			}
-
-			return $options;
-		});
-	}
-
-	public function getAllMovies() {
-		return $this->cache(__FUNCTION__, function() {
-			return $this->db->manyNode(Query::make()
-				->match('(x:Movie)')
-				->return('x')
-				->order('x.year, x.title')
-			);
-		});
-	}
-
-	public function getAllMoviesOptions() {
-		return $this->cache(__FUNCTION__, function() {
-			$movies = $this->getAllMovies();
-
-			$options = [];
-			foreach ($movies as $movie) {
-				$label = $movie['title'] . ' (' . $movie['year'] . ')';
-				$options[ $movie['uuid'] ] = $label;
-			}
-
-			return $options;
-		});
-	}
-
-	public function getAllCharacters() {
-		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many(Query::make()
-				->match('(c:Character)-[:HAS_ROLE]->(r:Role)<-[:HAS_ROLE]-(m:Movie)')
-				->return('c, collect(distinct m.title)[..2] AS movies')
-				->order('c.name')
-			);
-		});
-	}
-
-	public function getAllCharactersOptions() {
-		return $this->cache(__FUNCTION__, function() {
-			$characters = $this->getAllCharacters();
-
-			$options = [];
-			foreach ($characters as $character) {
-				$options[ $character->c['uuid'] ] = $character->c['name'] . ' (' . implode(', ', $character['movies']) . ')';
-			}
-
-			return $options;
-		});
-	}
-
-	public function createCharacter($movieUuid, $personUuid, $name) {
-		return $this->db->execute(Query::make()
-			->match('(p:Person {uuid: {p}})', ['p' => $personUuid])
-			->match('(m:Movie {uuid: {m}})', ['m' => $movieUuid])
-			->create('(c:Character {name: {name}, uuid: {uuid}})', [
-				'name' => $name,
-				'uuid' => $this->db->makeUuid(),
-			])
-			->create('(x:Role)')
-			->create('(p)-[:HAS_ROLE]->(x)')
-			->create('(c)-[:HAS_ROLE]->(x)')
-			->create('(m)-[:HAS_ROLE]->(x)')
-		);
-	}
-
-	public function createRole($movieUuid, $personUuid, $characterUuid) {
-		return $this->db->execute(Query::make()
-			->match('(p:Person {uuid: {p}})', ['p' => $personUuid])
-			->match('(m:Movie {uuid: {m}})', ['m' => $movieUuid])
-			->match('(c:Character {uuid: {c}})', ['c' => $characterUuid])
-			->create('(x:Role)')
-			->create('(p)-[:HAS_ROLE]->(x)')
-			->create('(c)-[:HAS_ROLE]->(x)')
-			->create('(m)-[:HAS_ROLE]->(x)')
-		);
-	}
-
-	public function getAllRoles() {
-		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many(Query::make()
-				->match('(n:Role)<-[:HAS_ROLE]-(c:Character)')
-				->match('(n)<-[:HAS_ROLE]-(m:Movie)')
-				->match('(n)<-[:HAS_ROLE]-(p:Person)')
-				->return('p, c, m')
-				->order('m.year, m.title, p.name')
-			);
-		});
-	}
-
-	public function getCharacter($uuid) {
-		return $this->db->oneNode(Query::make()
-			->match('(c:Character {uuid: {uuid}})', ['uuid' => $uuid])
-			->return('c')
-		);
-	}
-
-	public function getCharacterAppearances(Container $character) {
-		return $this->db->many(Query::make()
-			->match('(c:Character {uuid: {uuid}})-[:HAS_ROLE]->(r:Role)<-[:HAS_ROLE]-(p:Person)', ['uuid' => $character['uuid']])
-			->match('(r)<-[:HAS_ROLE]-(m:Movie)')
-			->return('p, m')
-		);
-	}
-
-	public function savePerson($uuid = null, array $data) {
-		$data = array_map('trim', $data);
-
-		return $this->db->merge('Person', $uuid, $data);
-	}
-
-	public function deletePerson($uuid) {
-		return $this->db->delete('Person', $uuid);
-	}
-
-	public function saveMovie($uuid = null, array $data) {
-		$data = array_map('trim', $data);
-
-		return $this->db->merge('Movie', $uuid, $data);
-	}
-
-	public function deleteMovie($uuid) {
-		return $this->db->delete('Movie', $uuid);
-	}
-
-	public function getQueries() {
-		$sessionQueries = $_SESSION['queries'] ?? [];
-		$_SESSION['queries'] = [];
-		return $sessionQueries;
-	}
-
-}

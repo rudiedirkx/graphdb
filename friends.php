@@ -1,9 +1,6 @@
 <?php
 
-use rdx\graphdb\Database;
-use rdx\graphdb\Query;
-
-$_time = microtime(1);
+$_time = microtime(true);
 
 require 'inc.bootstrap.friends.php';
 
@@ -47,6 +44,7 @@ $friendships = $app->getAllFriendships();
 $friendshipPath = null;
 if (!empty($_GET['friend1']) && !empty($_GET['friend2'])) {
 	$friendshipPath = $app->findFriendshipPath($_GET['friend1'], $_GET['friend2']);
+	// dd($friendshipPath);
 }
 
 ?>
@@ -70,6 +68,7 @@ button.delete {
 			<th>Friend 1</th>
 			<th>Friend 2</th>
 			<th>Since</th>
+			<th></th>
 		</tr>
 	</thead>
 	<tbody>
@@ -126,7 +125,7 @@ button.delete {
 	</p>
 </form>
 
-<pre><?= round(1000 * (microtime(1) - $_time)) ?> ms</pre>
+<pre><?= round(1000 * (microtime(true) - $_time)) ?> ms</pre>
 <pre></pre>
 
 <script>
@@ -158,108 +157,3 @@ document.querySelector('.create-friendship select').onchange = function() {
 	<summary>Queries</summary>
 	<pre><?php print_r($app->getQueries()); ?></pre>
 </details>
-<?php
-
-class FriendsApp {
-
-	protected $db;
-	protected $cache = [];
-
-	public function __construct(Database $db) {
-		$this->db = $db;
-
-		// CREATE CONSTRAINT ON (p:Person) ASSERT p.name IS UNIQUE
-	}
-
-	protected function cache($name, callable $worker) {
-		if (!array_key_exists($name, $this->cache)) {
-			$this->cache[$name] = $worker();
-		}
-
-		return $this->cache[$name];
-	}
-
-	public function findFriendshipPath($person1, $person2) {
-		return $this->db->one('
-			MATCH path=(e:Person {name: {person1}})-[f:IS_FRIENDS_WITH*]-(j:Person {name: {person2}})
-			RETURN nodes(path) AS friends, size(f) AS length
-			ORDER BY length ASC
-			LIMIT 1
-		', compact('person1', 'person2'));
-	}
-
-	public function deleteFriendship($id) {
-		return $this->db->execute(Query::make()
-			->match('()-[f:IS_FRIENDS_WITH]->()')
-			->where('id(f) = {id}', ['id' => (int) $id])
-			->delete('f')
-		);
-	}
-
-	public function createFriendship($person1, $person2) {
-		$data = ['since' => time()];
-		return $this->db->execute(Query::make()
-			->match('(p1:Person)')->match('(p2:Person)')
-			->where('p1.name = {person1}', compact('person1'))
-			->where('p2.name = {person2}', compact('person2'))
-			->create('(p1)-[:IS_FRIENDS_WITH {data}]->(p2)', compact('data'))
-		);
-	}
-
-	public function deletePerson($name) {
-		return $this->db->execute(Query::make()
-			->match('(p:Person)')
-			->where('p.name = {name}', compact('name'))
-			->delete('p')
-		);
-	}
-
-	public function createPerson(array $data) {
-		$data = array_map('trim', $data);
-
-		// Person.name is UNIQUE, so this is a very easy MERGE/REPLACE/UPSERT
-		return $this->db->execute(Query::make()
-			->merge('(p:Person {name: {name}})', ['name' => $data['name']])
-			->set('p += {data}', ['data' => $data])
-		);
-	}
-
-	public function getAllFriendships() {
-		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many(Query::make()
-				->match('(p1)-[f:IS_FRIENDS_WITH]->(p2)')
-				->return('p1.name AS name1', 'p2.name AS name2', 'f.since AS since', 'id(f) AS fid')
-				->order('name1 ASC', 'name2 ASC')
-			);
-		});
-	}
-
-	public function getAllPeople() {
-		return $this->cache(__FUNCTION__, function() {
-			return $this->db->many(Query::make()
-				->match('(p:Person)')
-				->return('p')
-				->order('p.name ASC')
-			);
-		});
-	}
-
-	public function getAllPeopleOptions() {
-		return $this->cache(__FUNCTION__, function() {
-			$people = $this->getAllPeople();
-
-			$options = [];
-			foreach ($people as $person) {
-				$props = array_filter([$person->p['age'], $person->p['hobby']]);
-				$options[ $person->p['name'] ] = $person->p['name'] . ($props ? ' (' . implode(', ', $props) . ')' : '');
-			}
-
-			return $options;
-		});
-	}
-
-	public function getQueries() {
-		return $this->db->getQueries();
-	}
-
-}
