@@ -50,7 +50,7 @@ class Database {
 	public function delete(string $label, string $uuid) : CypherList {
 		return $this->execute(Query::make()
 			->match('(x:' . $label . ')')
-			->where('x.uuid = {uuid}', ['uuid' => $uuid])
+			->where('x.uuid = $uuid', ['uuid' => $uuid])
 			->delete('x')
 		);
 	}

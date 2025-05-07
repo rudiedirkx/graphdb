@@ -13,12 +13,16 @@ class ImdbApp {
 		protected Database $db,
 	) {
 		$db->middleware('log', function(Closure $next, $query, array $params) {
+			$t = hrtime(true);
+			$out = $next($query, $params);
+			$t = hrtime(true) - $t;
 			// @phpstan-ignore offsetAccess.nonOffsetAccessible
 			$_SESSION['queries'][] = [
+				'time' => $t / 1e6,
 				'query' => "\n" . trim($query, "\r\n"),
 				'params' => $params,
 			];
-			return $next($query, $params);
+			return $out;
 		}, 1000);
 
 		// CREATE INDEX person_uuid FOR (x:Person) ON (x.uuid)
@@ -36,14 +40,13 @@ class ImdbApp {
 
 	/**
 	 * @param list<Container> $containers
-	 * @return array<string, object>
 	 */
-	public function serializeContainers(array $containers) : array {
+	public function serializeContainers(array $containers) : object {
 		$objects = [];
 		foreach ($containers as $container) {
 			$objects[ $container['uuid'] ] = $container;
 		}
-		return $objects ?: new stdClass;
+		return (object) $objects;
 	}
 
 	/**

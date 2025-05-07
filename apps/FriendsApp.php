@@ -13,12 +13,16 @@ class FriendsApp {
 		protected Database $db,
 	) {
 		$db->middleware('log', function(Closure $next, $query, array $params) {
+			$t = hrtime(true);
+			$out = $next($query, $params);
+			$t = hrtime(true) - $t;
 			// @phpstan-ignore offsetAccess.nonOffsetAccessible
 			$_SESSION['queries'][] = [
+				'time' => $t / 1e6,
 				'query' => "\n" . trim($query, "\r\n"),
 				'params' => $params,
 			];
-			return $next($query, $params);
+			return $out;
 		}, 1000);
 
 		// CREATE CONSTRAINT FOR (p:Person) REQUIRE p.name IS UNIQUE
