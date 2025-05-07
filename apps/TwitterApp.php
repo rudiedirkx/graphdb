@@ -137,6 +137,14 @@ class TwitterApp {
 		);
 	}
 
+	public function deleteUser(string $name) : void {
+		$this->db->execute(Query::make()
+			->match('(x:User)')
+			->where('x.name = $name', ['name' => $name])
+			->delete('x')
+		);
+	}
+
 	/**
 	 * @param AssocArray $data
 	 */
